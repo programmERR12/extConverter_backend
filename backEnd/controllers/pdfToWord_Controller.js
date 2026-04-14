@@ -1,74 +1,123 @@
 
+// import fs from "fs";
+// import CloudmersiveConvertApiClient from "cloudmersive-convert-api-client";
 
-// // ------------
+// export const pdfToWord = async (req, res) => {
+//   if (!req.file) {
+//     return res.status(400).json({ message: "No file uploaded" });
+//   }
 
+//   // only PDF allowed
+//   if (!req.file.mimetype.includes("pdf")) {
+//     return res.status(400).json({ message: "Only PDF files allowed" });
+//   }
 
-import fs from "fs";
-import path from "path";
-import fetch, { FormData, fileFromSync } from "node-fetch";
+//   const filePath = req.file.path;
+
+//   // 🔑 Cloudmersive setup
+//   const defaultClient = CloudmersiveConvertApiClient.ApiClient.instance;
+//   const Apikey = defaultClient.authentications["Apikey"];
+//   Apikey.apiKey = process.env.API_KEY;
+
+//   // 🔥 important fix for 401
+//   defaultClient.defaultHeaders = {
+//     "Apikey": process.env.API_KEY
+//   };
+
+//   const apiInstance = new CloudmersiveConvertApiClient.ConvertDocumentApi();
+
+//   try {
+//     const inputFile = fs.readFileSync(filePath);
+
+//     apiInstance.convertDocumentPdfToDocx(inputFile, async (error, data) => {
+//       if (error) {
+//         console.error("❌ Conversion error:", error);
+//         return res.status(500).json({
+//           message: "Conversion failed",
+//           error: error.message,
+//         });
+//       }
+
+//       try {
+//         // 🔥 Direct DOCX download (NO SAVE)
+//         res.setHeader(
+//           "Content-Type",
+//           "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//         );
+
+//         res.setHeader(
+//           "Content-Disposition",
+//           `attachment; filename="${Date.now()}.docx"`
+//         );
+
+//         res.send(data);
+
+//         // cleanup uploaded file
+//         fs.unlink(filePath, (err) => {
+//           if (err) console.error("Cleanup error:", err);
+//         });
+
+//       } catch (err) {
+//         console.error("❌ Response error:", err);
+//         res.status(500).json({ message: "Response failed" });
+//       }
+//     });
+//   } catch (err) {
+//     console.error("❌ Server error:", err);
+//     res.status(500).json({ message: "Server error", error: err.message });
+//   }
+// };
+
+import CloudmersiveConvertApiClient from "cloudmersive-convert-api-client";
 
 export const pdfToWord = async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-
-  const uploadsDir = path.join("uploads");
-  const convertedDir = path.join("converted");
-
-  // Ensure both folders exist
-  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-  if (!fs.existsSync(convertedDir)) fs.mkdirSync(convertedDir);
-
-  const filePath = req.file.path; // path from multer
-  const token = process.env.API_TOKEN;
-
-  if (!token)
-    return res.status(500).json({ message: "Missing API token" });
-
   try {
-    // Prepare form data for ConvertAPI
-    const form = new FormData();
-    form.append("File", fileFromSync(filePath));
-
-    // Call ConvertAPI
-    const response = await fetch(
-      `https://v2.convertapi.com/convert/pdf/to/docx?Secret=${token}`,
-      {
-        method: "POST",
-        body: form,
-      }
-    );
-
-    const data = await response.json();
-
-    if (!data.Files || !data.Files[0].FileData) {
-      return res.status(500).json({ message: "Conversion failed", data });
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Decode Base64 → Binary buffer
-    const fileBase64 = data.Files[0].FileData;
-    const buffer = Buffer.from(fileBase64, "base64");
+    if (!req.file.mimetype.includes("pdf")) {
+      return res.status(400).json({ message: "Only PDF files allowed" });
+    }
 
-    // Save output inside "converted" folder
-    const outputFileName = `${Date.now()}.docx`;
-    const outputPath = path.join(convertedDir, outputFileName);
+    // 🔥 IMPORTANT FIX (memoryStorage)
+    const inputFile = req.file.buffer;
 
-    fs.writeFileSync(outputPath, buffer);
+    const defaultClient = CloudmersiveConvertApiClient.ApiClient.instance;
+    const Apikey = defaultClient.authentications["Apikey"];
+    Apikey.apiKey = process.env.API_KEY;
 
-    // Send file for download
-    res.download(outputPath, outputFileName, (err) => {
-      if (err) console.error(err);
+    defaultClient.defaultHeaders = {
+      "Apikey": process.env.API_KEY,
+    };
 
-      // Optional cleanup:
-      try {
-        fs.unlinkSync(filePath); // delete uploaded pdf
-        // fs.unlinkSync(outputPath); // keep converted file; comment out if you want to keep it
-      } catch (cleanupErr) {
-        console.error("Cleanup error:", cleanupErr);
+    const apiInstance = new CloudmersiveConvertApiClient.ConvertDocumentApi();
+
+    apiInstance.convertDocumentPdfToDocx(inputFile, (error, data) => {
+      if (error) {
+        return res.status(500).json({
+          message: "Conversion failed",
+          error: error.message,
+        });
       }
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${Date.now()}.docx"`
+      );
+
+      res.send(data);
     });
-  } catch (error) {
-    console.error("❌ Conversion error:", error);
-    res.status(500).json({ message: "Conversion failed", error: error.message });
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
-
-
