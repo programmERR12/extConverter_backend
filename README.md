@@ -135,23 +135,5 @@ Use `multipart/form-data`
 This project is open-source and free to use.
 ```
 
----
-
-# 💯 PRO TIP (interview level)
-
-Agar tum README me ye line add kar do:
-
-> “This backend is stateless and does not store files, ensuring high scalability.”
-
-👉 interviewer impression 🔥 ho jata hai
-
----
-
-Agar chaho toh main tumhe next bana ke de sakta hoon:
-- 🔥 Full-stack README (1 page SaaS style)
-- 🔥 GitHub profile portfolio README
-- 🔥 Resume project description (best ATS format)
-
-bas bol 👍
 
 
